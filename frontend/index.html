@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autobot - AI-Powered Algorithmic Trading</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@0.400.0/dist/umd/lucide.js"></script>
+
+    <!-- Note: To make the install prompt appear automatically on Android/Chrome,
+         you will need to host a valid manifest.json file and link it here: -->
+    <!-- <link rel="manifest" href="/manifest.json"> -->
+
+    <style>
+        :root {
+            /* Updated to match icon-512.jpg color scheme */
+            --purple-main:  #3d109b; /* Deep violet background */
+            --purple-hover: #2c0b70; /* Darker violet for hover */
+            --purple-bg:    #ece7f6; /* Very light tint for backgrounds */
+            --cream-main:   #f4ecd8; /* Cream/off-white icon and text color */
+            --text-dark:    #2b2b2b;
+            --text-muted:   #666;
+        }
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--text-dark); margin: 0; padding: 0;
+            display: flex; flex-direction: column; align-items: center;
+            min-height: 100vh; background-color: #fafafa;
+            background-image:
+                linear-gradient(rgba(61, 16, 155, .02) 2px,  transparent 2px),
+                linear-gradient(90deg, rgba(61, 16, 155, .02) 2px, transparent 2px),
+                linear-gradient(rgba(61, 16, 155, .015) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(61, 16, 155, .015) 1px, #fafafa 1px),
+                radial-gradient(at 0%   0%,   hsla(265, 70%, 93%, .7) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, hsla(265, 70%, 90%, .7) 0px, transparent 50%);
+            background-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px, auto, auto;
+            background-attachment: fixed;
+        }
+
+        /* ── Nav ── */
+        header.top-nav {
+            width: 100%; max-width: 1200px;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 20px;
+        }
+        .nav-left-group {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .nav-auth-btn {
+            background: transparent; color: var(--purple-main);
+            border: 2px solid var(--purple-main); padding: 8px 20px;
+            font-size: .95rem; font-weight: 600; border-radius: 8px;
+            cursor: pointer; transition: all .2s ease;
+            display: flex; align-items: center; justify-content: center;
+            gap: 8px; min-width: 140px; height: 42px; white-space: nowrap;
+        }
+        .nav-auth-btn:hover { background: var(--purple-main); color: var(--cream-main); }
+
+        /* ── Overlay backdrop ── */
+        .auth-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,.5); backdrop-filter: blur(5px);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 10000;
+        }
+        .popup-card {
+            background: #fff; padding: 40px; border-radius: 24px;
+            width: 90%; max-width: 430px;
+            box-shadow: 0 20px 50px rgba(0,0,0,.18);
+            text-align: center; border: 1px solid #eadef7; position: relative;
+        }
+        
+        /* ── Terms & Conditions Modal ── */
+        .terms-card {
+            max-width: 850px; 
+            max-height: 90vh; 
+            display: flex; 
+            flex-direction: column; 
+            text-align: left; 
+            padding: 30px 40px;
+        }
+        .terms-header {
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .terms-header h2 {
+            margin: 0;
+            color: var(--purple-main);
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 800;
+        }
+        .terms-content {
+            overflow-y: auto;
+            padding-right: 15px;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            line-height: 1.7;
+        }
+        .terms-content h3 {
+            color: var(--text-dark);
+            margin-top: 25px;
+            margin-bottom: 12px;
+            font-size: 1.1rem;
+        }
+        .terms-content p {
+            margin-bottom: 14px;
+        }
+        .terms-content ul {
+            padding-left: 20px;
+            margin-bottom: 18px;
+        }
+        .terms-content li {
+            margin-bottom: 8px;
+        }
+        .terms-content strong {
+            color: var(--text-dark);
+        }
+        
+        /* Custom Scrollbar for Terms */
+        .terms-content::-webkit-scrollbar {
+            width: 8px;
+        }
+        .terms-content::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+            border-radius: 4px;
+        }
+        .terms-content::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        .terms-content::-webkit-scrollbar-thumb:hover {
+            background: var(--purple-main); 
+        }
+
+        .close-modal {
+            position: absolute; top: 18px; right: 18px;
+            background: transparent; border: none; color: var(--text-muted);
+            cursor: pointer; padding: 4px; border-radius: 6px;
+            display: flex; align-items: center; transition: color .2s;
+        }
+        .close-modal:hover { color: var(--text-dark); }
+
+        /* ── Hero ── */
+        .dashboard-wrapper {
+            width: 100%; display: flex; flex-direction: column;
+            align-items: center; padding-bottom: 50px;
+        }
+        .hero-banner-container {
+            width: 92%; max-width: 1200px; background: var(--purple-main);
+            color: var(--cream-main); text-align: center; padding: 40px 30px;
+            margin-bottom: 48px; border-radius: 24px;
+            box-shadow: 0 15px 40px rgba(61, 16, 155, .18);
+        }
+        .brand-container { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 10px; }
+        .banner-logo { width: 40px; height: 40px; color: var(--cream-main); stroke-width: 2.5px; }
+        .hero-banner-container h1 {
+            font-family: 'Montserrat', sans-serif; font-size: 2.6rem;
+            margin: 0; font-weight: 800;
+        }
+        .hero-banner-container p {
+            font-family: 'Montserrat', sans-serif; font-size: 1.05rem;
+            max-width: 780px; margin: 10px auto 0; line-height: 1.6; opacity: .93;
+        }
+
+        /* ── Tool grid ── */
+        .workspace-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 26px; width: 92%; max-width: 1200px;
+        }
+        .tool-box {
+            background: rgba(255,255,255,.96); backdrop-filter: blur(4px);
+            border: 3px solid var(--purple-main); border-radius: 24px;
+            padding: 44px 25px 38px; box-shadow: 0 12px 30px rgba(61, 16, 155, .06);
+            display: flex; flex-direction: column; align-items: center;
+            text-align: center; position: relative; cursor: pointer; overflow: hidden;
+            transition: all .3s cubic-bezier(.16,1,.3,1);
+        }
+        .tool-box:hover {
+            background: var(--purple-bg);
+            transform: translateY(-6px);
+            box-shadow: 0 22px 44px rgba(61, 16, 155, .16);
+        }
+        .badge-square {
+            position: absolute; top: 0; left: 0; color: var(--cream-main);
+            font-family: 'Montserrat', sans-serif; font-size: .78rem; font-weight: 800;
+            text-transform: uppercase; letter-spacing: .5px; padding: 7px 15px;
+            border-bottom-right-radius: 14px; background: var(--purple-main); z-index: 5;
+        }
+        .tool-box svg  { color: var(--purple-main); stroke-width: 2px; width: 46px; height: 46px; margin-bottom: 16px; transition: transform .3s; }
+        .tool-box:hover svg { transform: scale(1.1); }
+        .tool-box span { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 1.22rem; margin-bottom: 10px; color: var(--text-dark); }
+        .tool-box p    { font-size: .84rem; color: var(--text-muted); margin: 0; line-height: 1.45; }
+        
+        /* Highlight specific rules for the Bonanza card */
+        .tool-bonanza:hover {
+            box-shadow: 0 22px 44px rgba(249, 115, 22, 0.16); /* Orange shadow on hover */
+        }
+
+        .footer-note { width: 100%; text-align: center; padding: 30px 20px; margin-top: auto; box-sizing: border-box; }
+        .footer-note a { color: var(--text-muted); text-decoration: none; font-size: 0.95rem; font-weight: 600; transition: color 0.2s ease; }
+        .footer-note a:hover { color: var(--purple-main); }
+
+        .hidden { display: none !important; }
+
+        @media (max-width: 900px)  { .workspace-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 640px)  {
+            .workspace-grid { grid-template-columns: 1fr; gap: 18px; }
+            .hero-banner-container h1 { font-size: 2rem; }
+            .nav-left-group { flex-direction: column; align-items: flex-start; gap: 10px; }
+            #navTermsBtn { font-size: .82rem; padding: 8px 14px; min-width: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<header class="top-nav">
+    <div class="nav-left-group">
+        <button id="installAppBtn" class="nav-auth-btn">
+            <i data-lucide="download" size="18"></i> Install
+        </button>
+    </div>
+    <button id="navTermsBtn" class="nav-auth-btn">
+        <i data-lucide="file-text" size="18"></i> Master Terms & Conditions
+    </button>
+</header>
+
+<!-- Terms & Conditions Overlay -->
+<div id="termsOverlay" class="auth-overlay hidden">
+    <div class="popup-card terms-card">
+        <button id="closeTermsBtn" class="close-modal"><i data-lucide="x" size="20"></i></button>
+        
+        <div class="terms-header">
+            <h2>Master Terms & Conditions</h2>
+        </div>
+        
+        <div class="terms-content">
+            <p><strong>Last Updated:</strong> June 25, 2026</p>
+            <p>Welcome to Autobot. These Master Terms and Conditions legally govern your access to and utilization of our AI-powered algorithmic trading execution engines. By accessing the Platform, inputting your broker, exchange, or AI API credentials, or activating an automated trading strategy, you acknowledge that you have read, understood, and agreed to be legally bound by these Terms without limitation.</p>
+
+            <h3>1. Nature of Service and Scope of Infrastructure</h3>
+            <ul>
+                <li><strong>No Financial Status:</strong> We are not a registered stockbroker, broker-dealer, financial advisor, asset manager, or portfolio management service in any jurisdiction. We do not operate a cryptocurrency exchange or clear financial transactions.</li>
+                <li><strong>No Investment Advice:</strong> No features, outputs, cached strategies, or AI-generated signals within the Platform constitute investment, legal, financial, or tax advice.</li>
+                <li><strong>The Execution Bridge:</strong> The Platform serves exclusively as a technical conduit translating user inputs and routing instructions to your independent, third-party brokerage or exchange endpoints via our two primary modules: the CCXT Router and the Dhan Engine.</li>
+                <li><strong>Absolute Session Lifespan Dependency:</strong> The automated execution engines operate as single-dashboard environments powered by active interface sessions with a 5-second polling interval utilizing Streamlit's fragment-based execution mechanism (@st.fragment). Unlike a full page reload, this fragment runs its own independent rerun cycle, meaning the STOP button and all other UI controls remain fully responsive between polling ticks.<strong>You explicitly acknowledge and agree that if your active web browser tab is closed, refreshed, or loses internet connectivity, or if your host device enters a sleep or standby state, the automated trading loop will instantaneously terminate.</strong> During any such disconnect, the Platform will cease scanning market conditions, generating signals, or protecting active market positions.</li>
+            </ul>
+
+            <h3>2. User-Provided AI, Strategy Generation, and Code Execution Risks</h3>
+            <ul>
+                <li><strong>User Liability for AI Costs and Usage:</strong> You are solely responsible for securing your AI API key, monitoring its usage, and paying any billing, overages, or fees charged by your chosen AI provider. We accept zero liability for compromised AI keys or unexpected API charges.</li>
+                <li><strong>AI Fallibility and Hallucinations:</strong> The Platform utilizes your provided AI to interpret your plain-English strategy prompts and dynamically compile them into execution logic containing a solitary <code>check_signal()</code> function. Large Language Models are prone to logical misinterpretations, code syntax bugs, and structural "hallucinations." The AI may compile code that directly contradicts your intended parameters.</li>
+                <li><strong>Mandatory Code Review Obligation:</strong> The Platform features a dedicated interface tool to view the compiled strategy code. You are strictly required to personally inspect, read, and verify the raw Python code for accuracy, correctness, and safety before triggering live deployment. You assume 100% legal and financial liability for any code executed by the Platform.</li>
+                <li><strong>The Nature of Strategy Caching:</strong> Local database caching of successful prompt hashes within the <code>strategy_cache</code> database table is performed strictly for user convenience and processing latency reduction. Storage within the cache does not indicate, imply, or guarantee financial profitability, systemic verification, or safety validation by the Platform.</li>
+            </ul>
+
+            <h3>3. Credential Handling, Session Caching, and Permissions</h3>
+            <ul>
+                <li><strong>Temporary Session Caching:</strong> To prevent exchange rate-limiting and protect your broker accounts from being banned for spamming authentication requests, your private API keys and secret credentials are temporarily stored in a local session cache. This allows the Platform to maintain a persistent connection to the broker during the 5-second polling intervals. These credentials are used strictly for active session execution and are never permanently written or retained in our persistent backend trade-tracking databases (dhan_trades.db, or ccxt_trades.db). You acknowledge this temporary caching mechanism and transmit your credentials at your own risk.</li>
+                <li><strong>Mandatory Key Privilege Scoping:</strong> You are legally and operationally required to configure your third-party exchange and broker API keys with the minimum necessary privileges—specifically, "Read/View" and "Order Placement/Trading" capabilities only. <strong>You are strictly forbidden from inputting credentials that have "Withdrawal", "Transfer", or "Account Management" permissions enabled.</strong> You assume sole liability for any capital compromises or account security breaches resulting from a violation of this clause.</li>
+            </ul>
+
+            <h3>4. Specific Asset Market Mechanics and Trigger Disclaimers</h3>
+            <p><strong>A. Indian Equities & SEBI Market Restrictions (Dhan Engine)</strong></p>
+            <ul>
+                <li><strong>Market Scope:</strong> The Dhan Engine facilitates execution over Indian equity and options markets using the Dhan broker API.</li>
+                <li><strong>Market Closures and Overnight Gaps:</strong> Traditional stock markets observe strict closing hours and weekend halts. You recognize that user-defined parameter triggers cannot defend against overnight or weekend market gaps. Positions executed at the next available market open may incur losses vastly exceeding your set thresholds.</li>
+                <li><strong>Account Compliance and Exchange Rules:</strong> You are solely responsible for adhering to your connected broker’s margin policies and local SEBI regulatory restrictions. The Platform is not liable for account freezes or position liquidations forced by Dhan.</li>
+            </ul>
+            <p><strong>B. Digital Assets & Cryptocurrency (CCXT Router)</strong></p>
+            <ul>
+                <li><strong>Market Scope:</strong> The CCXT Router deploys algorithmic scripts across Binance and Coinbase APIs.</li>
+                <li><strong>Extreme Volatility and Thin Order Books:</strong> Digital asset networks run continuously. Rapid order book depletion and high token volatility can exacerbate execution delay risks.</li>
+                <li><strong>Sandbox Environments:</strong> The platform offers a sandbox/paper trading toggle for supported exchanges. You acknowledge that simulated execution results may deviate drastically from real-world slippage, fees, and order matching realities.</li>
+            </ul>
+
+            <h3>5. Execution Parameters, Slippage, and Automatic Halting</h3>
+            <ul>
+                <li><strong>Triggers vs. Execution Realities:</strong> All explicit UI safety configurations—including Take Profit and Stop Loss percentages—represent conditional instruction triggers routed via market orders or native bracket functions. They <strong>do not guarantee execution prices.</strong> You accept all risks of financial "slippage" caused by low market liquidity, rapid price action, or network routing latencies.</li>
+                <li><strong>Automatic Error Deactivation:</strong> If a compiled strategy experiences a runtime Python script error or encounters broken third-party server responses, <strong>the Platform will immediately deactivate live trading status and halt the loop</strong> to prevent infinite loop errors or hazardous order routing. We assume no liability for unhedged exposure or missed market movements during an automated shutdown event.</li>
+            </ul>
+
+            <h3>6. Open Access and Platform Availability</h3>
+            <ul>
+                <li><strong>Platform Access:</strong> Both the CCXT Router and Dhan Engine are completely free to use, with no account registration, sign up, or sign in required.</li>
+                <li><strong>Right to Terminate:</strong> We reserve the right to suspend, restrict, or terminate your access to the Platform at any time, without prior notice, if we determine you are abusing the platform, attempting to reverse-engineer the infrastructure, or violating these Terms.</li>
+                <li><strong>User Mitigation Obligation:</strong> In the event of a platform crash, access suspension, or voluntary command termination, you are uniquely responsible for logging directly into your native Dhan app or cryptocurrency exchange portal to manually verify, adjust, hedge, or cleanly liquidate your open market exposure.</li>
+            </ul>
+
+            <h3>7. Absolute Limitation of Liability and Indemnification</h3>
+            <p>TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL AUTOBOT, ITS CORE DEVELOPERS, CREATORS, OR AFFILIATES BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, OR CONSEQUENTIAL DAMAGES, INCLUDING BUT NOT LIMITED TO:</p>
+            <ul>
+                <li>Total or partial loss of financial capital, investment balances, or trade profits.</li>
+                <li>Losses resulting directly from errors, bugs, hallucinations, omissions, or faulty logic produced by your connected AI API code compilation.</li>
+                <li>Losses arising from the abrupt termination of the 5-second polling thread due to browser refresh, tab closure, hosting crashes, or local internet loss.</li>
+                <li>Connectivity errors, API rate-limiting blocks, connection timeouts, or sudden service modifications executed by Dhan or your designated CCXT crypto exchange.</li>
+                <li>Losses resulting from the temporary session caching of your broker credentials, provided they were securely handled outside of our persistent databases.</li>
+                <li>Any billing charges, overages, or penalties levied by your third-party AI provider resulting from platform usage.</li>
+            </ul>
+            <p>You agree to indemnify, defend, and hold harmless Autobot and its creators from and against any and all third-party claims, financial losses, regulatory enforcement fines, or litigation costs arising out of your deployment of automated systems, your violation of these Terms, or your infringement of broker compliance rules.</p>
+        </div>
+    </div>
+</div>
+
+<div class="dashboard-wrapper">
+    <header class="hero-banner-container">
+        <div class="brand-container">
+            <i data-lucide="bot" class="banner-logo"></i>
+            <h1>Autobot</h1>
+        </div>
+        <p>AI-Powered Algorithmic Trading. Input your credentials, write your strategy in simple language, and let LLM's translate your strategies into executable code.</p>
+    </header>
+
+    <main class="workspace-grid">
+        <a id="tool-ccxt" href="#" class="tool-box" style="text-decoration: none; color: inherit;">
+            <div class="badge-square">Free</div>
+            <i data-lucide="coins"></i>
+            <span>CCXT Router</span>
+            <p>Test your strategies and indicators on live/paper environments across 100+ crypto-exchanges using CCXT API.</p>
+        </a>
+        <a id="tool-dhan" href="#" class="tool-box" style="text-decoration: none; color: inherit;">
+            <div class="badge-square">Free</div>
+            <i data-lucide="activity"></i>
+            <span>Dhan Engine</span>
+            <p>Deploy your strategies and indicators on Indian equity and options markets through the Dhan broker API.</p>
+        </a>
+        
+        <!-- Modified: Highlight styling directly applied here with orange scheme -->
+        <a href="#" class="tool-box tool-bonanza" style="text-decoration: none; color: inherit; border-color: #f97316; background-color: #fffaf0;">
+            <div class="badge-square" style="background: #f97316; color: #fff;">Sponsored</div>
+            <img src="Bonanza.png" data-reference="icon-512_2.png" alt="Bonanza" style="width: 46px; height: 46px; margin-bottom: 16px; border-radius: 8px; object-fit: contain;">
+            <span>Bonanza</span>
+            <p>Get Free Coupons!! Grab Exclusive Deals and Offers from your Favourite Brands.</p>
+        </a>
+    </main>
+</div>
+
+<footer class="footer-note">
+    <a href="mailto:leadstack3@gmail.com">Need Help? Contact Support</a>
+</footer>
+
+<script>
+    lucide.createIcons();
+
+    // --- PWA Add to Home Screen Logic ---
+    let deferredPrompt;
+    const installBtn = document.getElementById('installAppBtn');
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        console.log("Install prompt is ready.");
+    });
+
+    installBtn.addEventListener('click', async () => {
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log(`User response to install prompt: ${outcome}`);
+            deferredPrompt = null;
+        } else {
+            alert("To install Autobot to your device:\n\n• iOS: Tap the 'Share' icon at the bottom of Safari and select 'Add to Home Screen'.\n• Desktop/Android: Ensure your browser supports installation or check the browser menu.");
+        }
+    });
+
+    // --- Terms & Conditions Modal Logic ---
+    const termsOverlay = document.getElementById('termsOverlay');
+    const closeTermsBtn = document.getElementById('closeTermsBtn');
+    const navTermsBtn = document.getElementById('navTermsBtn');
+
+    navTermsBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        termsOverlay.classList.remove('hidden');
+    });
+
+    closeTermsBtn.addEventListener('click', () => {
+        termsOverlay.classList.add('hidden');
+    });
+
+    termsOverlay.addEventListener('click', (e) => {
+        if (e.target === termsOverlay) {
+            termsOverlay.classList.add('hidden');
+        }
+    });
+
+    // --- Tool Link Placeholders ---
+    // TODO: Replace these placeholder hrefs with the live tool URLs when ready.
+    document.getElementById('tool-ccxt').href = '#';
+    document.getElementById('tool-dhan').href = '#';
+</script>
+</body>
+</html>
