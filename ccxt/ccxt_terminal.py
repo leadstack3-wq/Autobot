@@ -311,7 +311,7 @@ AI_PROVIDERS = {
     "Gemini":    {"model": "gemini-2.5-flash-lite", "key_hint": "AIza…"},
     "OpenAI":    {"model": "gpt-4o-mini",            "key_hint": "sk-…"},
     "Anthropic": {"model": "claude-sonnet-4-6",      "key_hint": "sk-ant-…"},
-    "DeepSeek":  {"model": "deepseek-chat",          "key_hint": "sk-…"},
+    "DeepSeek":  {"model": "deepseek-v4-flash",          "key_hint": "sk-…"},
 }
 
 def _strip_code_fences(raw: str) -> str:
