@@ -11,7 +11,7 @@
 
     <!-- Note: To make the install prompt appear automatically on Android/Chrome,
          you will need to host a valid manifest.json file and link it here: -->
-    <!-- <link rel="manifest" href="/manifest.json"> -->
+    <link rel="manifest" href="/manifest.json">
 
     <style>
         :root {
@@ -238,12 +238,12 @@
         <button id="closeTermsBtn" class="close-modal"><i data-lucide="x" size="20"></i></button>
         
         <div class="terms-header">
-            <h2>Master Terms & Conditions</h2>
+            <h2>Terms & Conditions</h2>
         </div>
         
         <div class="terms-content">
             <p><strong>Last Updated:</strong> June 25, 2026</p>
-            <p>Welcome to Autobot. These Master Terms and Conditions legally govern your access to and utilization of our AI-powered algorithmic trading execution engines. By accessing the Platform, inputting your broker, exchange, or AI API credentials, or activating an automated trading strategy, you acknowledge that you have read, understood, and agreed to be legally bound by these Terms without limitation.</p>
+            <p>Welcome to Autobot. These Terms and Conditions legally govern your access to and utilization of our AI-powered algorithmic trading execution engines. By accessing the Platform, inputting your broker, exchange, or AI API credentials, or activating an automated trading strategy, you acknowledge that you have read, understood, and agreed to be legally bound by these Terms without limitation.</p>
 
             <h3>1. Nature of Service and Scope of Infrastructure</h3>
             <ul>
@@ -319,13 +319,13 @@
     </header>
 
     <main class="workspace-grid">
-        <a id="tool-ccxt" href="https://autobot-ccxt.streamlit.app/" class="tool-box" style="text-decoration: none; color: inherit;">
+        <a id="tool-ccxt" href="#" class="tool-box" style="text-decoration: none; color: inherit;">
             <div class="badge-square">Free</div>
             <i data-lucide="coins"></i>
             <span>CCXT Router</span>
             <p>Test your strategies and indicators on live/paper environments across 100+ crypto-exchanges using CCXT API.</p>
         </a>
-        <a id="tool-dhan" href="https://autobot-ccxt.streamlit.app/" class="tool-box" style="text-decoration: none; color: inherit;">
+        <a id="tool-dhan" href="#" class="tool-box" style="text-decoration: none; color: inherit;">
             <div class="badge-square">Free</div>
             <i data-lucide="activity"></i>
             <span>Dhan Engine</span>
@@ -333,7 +333,7 @@
         </a>
         
         <!-- Modified: Highlight styling directly applied here with orange scheme -->
-        <a href="https://bonanzaindia.netlify.app/" class="tool-box tool-bonanza" style="text-decoration: none; color: inherit; border-color: #f97316; background-color: #fffaf0;">
+        <a href="#" class="tool-box tool-bonanza" style="text-decoration: none; color: inherit; border-color: #f97316; background-color: #fffaf0;">
             <div class="badge-square" style="background: #f97316; color: #fff;">Sponsored</div>
             <img src="Bonanza.png" data-reference="icon-512_2.png" alt="Bonanza" style="width: 46px; height: 46px; margin-bottom: 16px; border-radius: 8px; object-fit: contain;">
             <span>Bonanza</span>
@@ -390,6 +390,18 @@
         }
     });
 
+    // --- Tool Link Placeholders ---
+    // TODO: Replace these placeholder hrefs with the live tool URLs when ready.
+    document.getElementById('tool-ccxt').href = '#';
+    document.getElementById('tool-dhan').href = '#';
+
+    if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('SW registered:', reg.scope))
+      .catch(err => console.error('SW registration failed:', err));
+   });
+   }
 </script>
 </body>
 </html>
