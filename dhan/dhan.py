@@ -16,7 +16,7 @@ except ImportError:
 # PAGE CONFIG
 # ─────────────────────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Dhan AI Terminal",
+    page_title="Free Dhan Automated Trading Bot",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="collapsed",
