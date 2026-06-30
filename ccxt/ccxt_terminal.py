@@ -13,7 +13,7 @@ import streamlit_analytics2 as streamlit_analytics
 CCXT_EXCHANGES = sorted(ccxt.exchanges, key=lambda x: (x != "binance", x))
 
 st.set_page_config(
-    page_title="CCXT AI Terminal",
+    page_title="Free CCXT Cryptp Trading Bot",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="collapsed",
