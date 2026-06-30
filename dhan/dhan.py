@@ -7,6 +7,7 @@ import requests
 import hashlib
 from datetime import datetime
 from dhanhq import dhanhq
+import streamlit_analytics2 as streamlit_analytics
 try:
     from dhanhq import DhanContext
 except ImportError:
@@ -16,7 +17,7 @@ except ImportError:
 # PAGE CONFIG
 # ─────────────────────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Free Dhan Automated Trading Bot",
+    page_title="Dhan AI Terminal",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -343,7 +344,7 @@ AI_PROVIDERS = {
     "Gemini":    {"model": "gemini-2.5-flash-lite", "key_hint": "AIza…"},
     "OpenAI":    {"model": "gpt-4o-mini",            "key_hint": "sk-…"},
     "Anthropic": {"model": "claude-sonnet-4-6",      "key_hint": "sk-ant-…"},
-    "DeepSeek":  {"model": "deepseek-v4-flash",          "key_hint": "sk-…"},
+    "DeepSeek":  {"model": "deepseek-chat",          "key_hint": "sk-…"},
 }
 
 def _strip_code_fences(raw: str) -> str:
@@ -489,215 +490,216 @@ def get_or_create_dhan_client(client_id: str, access_token: str):
 # ─────────────────────────────────────────────────────────────────────────────
 # 6. MAIN TABS
 # ─────────────────────────────────────────────────────────────────────────────
-tab_config, tab_engine, tab_records = st.tabs(["⚙️  Config", "🚀  Engine", "📋  Records"])
-
-# ─── CONFIG TAB ───────────────────────────────────────────────────────────────
-with tab_config:
-    st.warning("Keep this browser tab open and maintain a stable internet connection while the engine is running. Closing or refreshing the tab, losing connectivity, or putting your device to sleep can stop automated trading immediately.")
-    st.markdown('<div class="dhan-config-header" style="margin-top: 0;"><h3>🔑 Dhan Credentials</h3></div>', unsafe_allow_html=True)
-    user_client_id   = st.text_input("Client ID", type="password", placeholder="Dhan Client ID", key="dhan_client_id")
-    user_access_token = st.text_input("Access Token", type="password", placeholder="Dhan Access Token", key="dhan_token")
-    st.markdown('<div class="dhan-config-header"><h3>📈 Asset Config</h3></div>', unsafe_allow_html=True)
-    target_symbol = st.text_input("Symbol", value="RELIANCE", key="dhan_symbol")
-    security_id   = st.text_input("Security ID", value="1333", key="dhan_sec_id")
-    exchange_seg  = st.selectbox("Exchange", ["NSE_EQ", "NSE_FNO", "BSE_EQ"], key="dhan_exchange_select")
-    st.markdown('<div class="dhan-config-header"><h3>🤖 AI Provider (Bring Your Own Key)</h3></div>', unsafe_allow_html=True)
-    st.session_state.sb_ai_provider = st.selectbox(
-        "AI Provider",
-        list(AI_PROVIDERS.keys()),
-        index=list(AI_PROVIDERS.keys()).index(st.session_state.sb_ai_provider),
-        key="dhan_cfg_ai_provider",
-    )
-    _provider_info = AI_PROVIDERS[st.session_state.sb_ai_provider]
-    st.session_state.sb_ai_key = st.text_input(
-        f"{st.session_state.sb_ai_provider} API Key",
-        value=st.session_state.sb_ai_key,
-        placeholder=_provider_info["key_hint"],
-        type="password",
-        key="dhan_cfg_ai_key",
-    )
-    st.caption(f"Model used: `{_provider_info['model']}` · Your key is kept only in this browser session, never stored server-side.")
-    st.markdown('<div class="dhan-config-header"><h3>⚙️ Engine Status</h3></div>', unsafe_allow_html=True)
-    status_color = "#059669" if st.session_state.trading_active else "#9491A8"
-    status_label = "🟢 RUNNING" if st.session_state.trading_active else "⚪ IDLE"
-    st.markdown(f'<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;text-align:center;"><span style="color:{status_color};font-weight:700;font-size:13px;">{status_label}</span></div>', unsafe_allow_html=True)
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 7. ENGINE TAB
-# ─────────────────────────────────────────────────────────────────────────────
-with tab_engine:
-    # Read config values from session state so Engine tab always has current values
-    _client_id    = st.session_state.get("dhan_client_id", "")
-    _access_token = st.session_state.get("dhan_token", "")
-    _symbol       = st.session_state.get("dhan_symbol", "RELIANCE")
-    _security_id  = st.session_state.get("dhan_sec_id", "1333")
-    _exchange_seg = st.session_state.get("dhan_exchange_select", "NSE_EQ")
-    _ai_provider  = st.session_state.sb_ai_provider
-    _ai_api_key   = st.session_state.sb_ai_key
-
-    st.markdown('<div class="dhan-section-header"><h3>⚙️ Trading Parameters</h3></div>', unsafe_allow_html=True)
-    c1, c2 = st.columns(2)
-    with c1:
-        timeframe = st.selectbox("Timeframe", ["1 Min", "5 Min", "15 Min", "1 Hour", "Daily"], key="dhan_tf_select")
-        tp_pct    = st.number_input("Take Profit (%)", min_value=0.0, value=1.5, step=0.1, key="dhan_tp")
-    with c2:
-        trade_qty = st.number_input("Quantity", min_value=1, value=1, key="dhan_qty")
-        sl_pct    = st.number_input("Stop Loss (%)", min_value=0.0, value=1.0, step=0.1, key="dhan_sl")
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown('<div class="dhan-section-header"><h3>📝 Strategy Prompt</h3></div>', unsafe_allow_html=True)
-    st.markdown('<div class="strategy-canvas"><div class="strategy-canvas-label">Describe your strategy in plain English</div>', unsafe_allow_html=True)
-    MACD_PLACEHOLDER = "# Strategy: MACD Crossover\n# Buy when MACD line crosses above the Signal line.\n# Sell when MACD line crosses below the Signal line.\n# Use default parameters (12, 26, 9) for MACD calculation.\n"
-    user_prompt = st.text_area("", value=MACD_PLACEHOLDER, height=180, label_visibility="collapsed", key="dhan_strategy")
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    btn1, btn2 = st.columns(2)
-    with btn1:
-        if st.button("▶  START AUTO TRADING", use_container_width=True, key="dhan_start"):
-            if not _client_id or not _access_token:
-                st.error("⛔ Dhan credentials required before starting.")
-            elif not _ai_api_key:
-                st.error(f"⛔ {_ai_provider} API key required before starting. Add it in the Config tab.")
-            else:
-                cached_code, prompt_hash, is_cached = get_cached_code(user_prompt)
-                st.session_state.active_hash = prompt_hash
-                if is_cached:
-                    st.session_state.current_compiled_code = cached_code
-                    st.session_state.trading_active = True
-                    st.session_state.analysis_success = True
-                    st.success("✅ Loaded strategy from cache.")
+with streamlit_analytics.track():
+    tab_config, tab_engine, tab_records = st.tabs(["⚙️  Config", "🚀  Engine", "📋  Records"])
+    
+    # ─── CONFIG TAB ───────────────────────────────────────────────────────────────
+    with tab_config:
+        st.warning("Keep this browser tab open and maintain a stable internet connection while the engine is running. Closing or refreshing the tab, losing connectivity, or putting your device to sleep can stop automated trading immediately.")
+        st.markdown('<div class="dhan-config-header" style="margin-top: 0;"><h3>🔑 Dhan Credentials</h3></div>', unsafe_allow_html=True)
+        user_client_id   = st.text_input("Client ID", type="password", placeholder="Dhan Client ID", key="dhan_client_id")
+        user_access_token = st.text_input("Access Token", type="password", placeholder="Dhan Access Token", key="dhan_token")
+        st.markdown('<div class="dhan-config-header"><h3>📈 Asset Config</h3></div>', unsafe_allow_html=True)
+        target_symbol = st.text_input("Symbol", value="RELIANCE", key="dhan_symbol")
+        security_id   = st.text_input("Security ID", value="1333", key="dhan_sec_id")
+        exchange_seg  = st.selectbox("Exchange", ["NSE_EQ", "NSE_FNO", "BSE_EQ"], key="dhan_exchange_select")
+        st.markdown('<div class="dhan-config-header"><h3>🤖 AI Provider (Bring Your Own Key)</h3></div>', unsafe_allow_html=True)
+        st.session_state.sb_ai_provider = st.selectbox(
+            "AI Provider",
+            list(AI_PROVIDERS.keys()),
+            index=list(AI_PROVIDERS.keys()).index(st.session_state.sb_ai_provider),
+            key="dhan_cfg_ai_provider",
+        )
+        _provider_info = AI_PROVIDERS[st.session_state.sb_ai_provider]
+        st.session_state.sb_ai_key = st.text_input(
+            f"{st.session_state.sb_ai_provider} API Key",
+            value=st.session_state.sb_ai_key,
+            placeholder=_provider_info["key_hint"],
+            type="password",
+            key="dhan_cfg_ai_key",
+        )
+        st.caption(f"Model used: `{_provider_info['model']}` · Your key is kept only in this browser session, never stored server-side.")
+        st.markdown('<div class="dhan-config-header"><h3>⚙️ Engine Status</h3></div>', unsafe_allow_html=True)
+        status_color = "#059669" if st.session_state.trading_active else "#9491A8"
+        status_label = "🟢 RUNNING" if st.session_state.trading_active else "⚪ IDLE"
+        st.markdown(f'<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;text-align:center;"><span style="color:{status_color};font-weight:700;font-size:13px;">{status_label}</span></div>', unsafe_allow_html=True)
+    
+    # ─────────────────────────────────────────────────────────────────────────────
+    # 7. ENGINE TAB
+    # ─────────────────────────────────────────────────────────────────────────────
+    with tab_engine:
+        # Read config values from session state so Engine tab always has current values
+        _client_id    = st.session_state.get("dhan_client_id", "")
+        _access_token = st.session_state.get("dhan_token", "")
+        _symbol       = st.session_state.get("dhan_symbol", "RELIANCE")
+        _security_id  = st.session_state.get("dhan_sec_id", "1333")
+        _exchange_seg = st.session_state.get("dhan_exchange_select", "NSE_EQ")
+        _ai_provider  = st.session_state.sb_ai_provider
+        _ai_api_key   = st.session_state.sb_ai_key
+    
+        st.markdown('<div class="dhan-section-header"><h3>⚙️ Trading Parameters</h3></div>', unsafe_allow_html=True)
+        c1, c2 = st.columns(2)
+        with c1:
+            timeframe = st.selectbox("Timeframe", ["1 Min", "5 Min", "15 Min", "1 Hour", "Daily"], key="dhan_tf_select")
+            tp_pct    = st.number_input("Take Profit (%)", min_value=0.0, value=1.5, step=0.1, key="dhan_tp")
+        with c2:
+            trade_qty = st.number_input("Quantity", min_value=1, value=1, key="dhan_qty")
+            sl_pct    = st.number_input("Stop Loss (%)", min_value=0.0, value=1.0, step=0.1, key="dhan_sl")
+    
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown('<div class="dhan-section-header"><h3>📝 Strategy Prompt</h3></div>', unsafe_allow_html=True)
+        st.markdown('<div class="strategy-canvas"><div class="strategy-canvas-label">Describe your strategy in plain English</div>', unsafe_allow_html=True)
+        MACD_PLACEHOLDER = "# Strategy: MACD Crossover\n# Buy when MACD line crosses above the Signal line.\n# Sell when MACD line crosses below the Signal line.\n# Use default parameters (12, 26, 9) for MACD calculation.\n"
+        user_prompt = st.text_area("", value=MACD_PLACEHOLDER, height=180, label_visibility="collapsed", key="dhan_strategy")
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+        btn1, btn2 = st.columns(2)
+        with btn1:
+            if st.button("▶  START AUTO TRADING", use_container_width=True, key="dhan_start"):
+                if not _client_id or not _access_token:
+                    st.error("⛔ Dhan credentials required before starting.")
+                elif not _ai_api_key:
+                    st.error(f"⛔ {_ai_provider} API key required before starting. Add it in the Config tab.")
                 else:
-                    with st.spinner(f"{_ai_provider} is compiling your strategy…"):
-                        compiled, err = compile_prompt_via_ai(user_prompt, _ai_provider, _ai_api_key)
-                    if err:
-                        st.error(f"⛔ {_ai_provider} Error: {err}")
-                    else:
-                        save_code_to_cache(prompt_hash, user_prompt, compiled)
-                        st.session_state.current_compiled_code = compiled
+                    cached_code, prompt_hash, is_cached = get_cached_code(user_prompt)
+                    st.session_state.active_hash = prompt_hash
+                    if is_cached:
+                        st.session_state.current_compiled_code = cached_code
                         st.session_state.trading_active = True
                         st.session_state.analysis_success = True
-                        st.success("✅ Strategy compiled and ready.")
-    with btn2:
-        if st.button("⏹  STOP AUTO TRADING", use_container_width=True, key="dhan_stop"):
-            st.session_state.trading_active = False
-            st.session_state.analysis_success = False
-            # Release the pooled client on stop
-            st.session_state.dhan_client = None
-            st.session_state.dhan_client_key = ""
-            st.warning("Trading paused. Strategy code preserved in session.")
-
-    if st.session_state.current_compiled_code:
-        with st.expander("🛠  View Compiled Strategy Code"):
-            st.code(st.session_state.current_compiled_code, language="python")
-
-    # FIX #2 — Non-blocking polling loop via @st.fragment(run_every=…).
-    # The fragment owns its own rerun cycle so STOP state changes propagate
-    # immediately and Render health-check pings are never blocked.
-    @st.fragment(run_every=5)
-    def _live_engine_fragment():
-        if not st.session_state.trading_active or not st.session_state.current_compiled_code:
-            return
-
-        # FIX #4 — reuse pooled Dhan client; only re-authenticates when creds change
-        try:
-            dhan_client = get_or_create_dhan_client(_client_id, _access_token)
-        except Exception as exc:
-            st.error(f"Dhan connection error: {exc}")
-            st.session_state.trading_active = False
-            return
-
-        slot_symbol  = st.empty()
-        slot_signal  = st.empty()
-        slot_counter = st.empty()
-
-        # FIX #1 — pass dhan_client, symbol, and timeframe into seeded exec scope
-        signal_output, runtime_err = run_in_memory_strategy(
-            st.session_state.current_compiled_code,
-            dhan_client,
-            _symbol,
-            timeframe,
-        )
-
-        if runtime_err:
-            st.error(f"⛔ Execution error: {runtime_err}")
-            st.session_state.trading_active = False
-            return
-
-        ts = datetime.now().strftime("%H:%M:%S")
-        slot_symbol.markdown(
-            f'<div class="metric-card metric-card-accent">'
-            f'<div class="metric-label">Polling Target</div>'
-            f'<div class="metric-value">📍 {_symbol} &nbsp;·&nbsp; {timeframe}</div></div>',
-            unsafe_allow_html=True,
-        )
-
-        sig_class  = "metric-card-green" if signal_output == "BUY" else "metric-card-red" if signal_output == "SELL" else "metric-card-accent"
-        badge_html = f'<span class="signal-{signal_output.lower()}">{signal_output}</span>'
-        slot_signal.markdown(
-            f'<div class="metric-card {sig_class}">'
-            f'<div class="metric-label">AI Signal &nbsp;·&nbsp; {ts}</div>'
-            f'<div class="metric-value">{badge_html}</div></div>',
-            unsafe_allow_html=True,
-        )
-        st.session_state.signal_history.append({"time": ts, "signal": signal_output})
-
-        if signal_output in ("BUY", "SELL"):
-            p_mode = "BO" if (tp_pct > 0 or sl_pct > 0) else "INTRADAY"
+                        st.success("✅ Loaded strategy from cache.")
+                    else:
+                        with st.spinner(f"{_ai_provider} is compiling your strategy…"):
+                            compiled, err = compile_prompt_via_ai(user_prompt, _ai_provider, _ai_api_key)
+                        if err:
+                            st.error(f"⛔ {_ai_provider} Error: {err}")
+                        else:
+                            save_code_to_cache(prompt_hash, user_prompt, compiled)
+                            st.session_state.current_compiled_code = compiled
+                            st.session_state.trading_active = True
+                            st.session_state.analysis_success = True
+                            st.success("✅ Strategy compiled and ready.")
+        with btn2:
+            if st.button("⏹  STOP AUTO TRADING", use_container_width=True, key="dhan_stop"):
+                st.session_state.trading_active = False
+                st.session_state.analysis_success = False
+                # Release the pooled client on stop
+                st.session_state.dhan_client = None
+                st.session_state.dhan_client_key = ""
+                st.warning("Trading paused. Strategy code preserved in session.")
+    
+        if st.session_state.current_compiled_code:
+            with st.expander("🛠  View Compiled Strategy Code"):
+                st.code(st.session_state.current_compiled_code, language="python")
+    
+        # FIX #2 — Non-blocking polling loop via @st.fragment(run_every=…).
+        # The fragment owns its own rerun cycle so STOP state changes propagate
+        # immediately and Render health-check pings are never blocked.
+        @st.fragment(run_every=5)
+        def _live_engine_fragment():
+            if not st.session_state.trading_active or not st.session_state.current_compiled_code:
+                return
+    
+            # FIX #4 — reuse pooled Dhan client; only re-authenticates when creds change
             try:
-                order_resp = dhan_client.place_order(
-                    tag="AI_Dhan_Terminal", transaction_type=signal_output,
-                    exchange_segment=_exchange_seg, product_type=p_mode,
-                    order_type="MARKET", validity="DAY", quantity=int(trade_qty),
-                    security_id=str(_security_id), price=0, trigger_price=0,
-                    disclosed_quantity=0, after_market_order=False, amo_time="OPEN",
-                    bo_profit_value=float(tp_pct), bo_stop_loss_Value=float(sl_pct),
-                )
-                order_id = order_resp.get("data", {}).get("orderId", "N/A")
-                log_trade(st.session_state.active_hash, _symbol, timeframe,
-                          signal_output, trade_qty, tp_pct, sl_pct, order_id, "SUCCESS")
-                st.toast(f"🎯 {signal_output} {trade_qty}× {_symbol} placed", icon="✅")
-            except Exception as order_err:
-                log_trade(st.session_state.active_hash, _symbol, timeframe,
-                          signal_output, trade_qty, tp_pct, sl_pct, "FAILED", str(order_err))
-                st.error(f"Order error: {order_err}")
-
-        slot_counter.markdown(
-            f'<div style="text-align:center;color:var(--label);font-size:12px;padding:6px;">'
-            f'Next poll in 5s · Tick #{len(st.session_state.signal_history)}</div>',
-            unsafe_allow_html=True,
-        )
-
-    if st.session_state.trading_active and st.session_state.current_compiled_code:
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown('<div class="dhan-section-header"><h3>📡 Live Engine</h3></div>', unsafe_allow_html=True)
-        _live_engine_fragment()
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 8. RECORDS TAB
-# ─────────────────────────────────────────────────────────────────────────────
-with tab_records:
-    if st.button("🔄 Refresh", key="dhan_refresh"):
-        st.rerun()
-    hist_df = fetch_trade_history()
-    if not hist_df.empty:
-        st.dataframe(hist_df, use_container_width=True)
-        st.markdown("<br>", unsafe_allow_html=True)
-        total  = len(hist_df)
-        buys   = len(hist_df[hist_df["action"] == "BUY"])
-        sells  = len(hist_df[hist_df["action"] == "SELL"])
-        errors = len(hist_df[hist_df["status"] != "SUCCESS"])
-        s1, s2, s3, s4 = st.columns(4)
-        for col, label, val, cls in [
-            (s1, "Total Trades", total,  "metric-card-accent"),
-            (s2, "BUY Orders",   buys,   "metric-card-green"),
-            (s3, "SELL Orders",  sells,  "metric-card-red"),
-            (s4, "Errors",       errors, "metric-card-accent"),
-        ]:
-            with col:
-                st.markdown(
-                    f'<div class="metric-card {cls}"><div class="metric-label">{label}</div>'
-                    f'<div class="metric-value">{val}</div></div>',
-                    unsafe_allow_html=True,
-                )
-    else:
-        st.info("No trades logged yet. Start the engine to begin recording.")
+                dhan_client = get_or_create_dhan_client(_client_id, _access_token)
+            except Exception as exc:
+                st.error(f"Dhan connection error: {exc}")
+                st.session_state.trading_active = False
+                return
+    
+            slot_symbol  = st.empty()
+            slot_signal  = st.empty()
+            slot_counter = st.empty()
+    
+            # FIX #1 — pass dhan_client, symbol, and timeframe into seeded exec scope
+            signal_output, runtime_err = run_in_memory_strategy(
+                st.session_state.current_compiled_code,
+                dhan_client,
+                _symbol,
+                timeframe,
+            )
+    
+            if runtime_err:
+                st.error(f"⛔ Execution error: {runtime_err}")
+                st.session_state.trading_active = False
+                return
+    
+            ts = datetime.now().strftime("%H:%M:%S")
+            slot_symbol.markdown(
+                f'<div class="metric-card metric-card-accent">'
+                f'<div class="metric-label">Polling Target</div>'
+                f'<div class="metric-value">📍 {_symbol} &nbsp;·&nbsp; {timeframe}</div></div>',
+                unsafe_allow_html=True,
+            )
+    
+            sig_class  = "metric-card-green" if signal_output == "BUY" else "metric-card-red" if signal_output == "SELL" else "metric-card-accent"
+            badge_html = f'<span class="signal-{signal_output.lower()}">{signal_output}</span>'
+            slot_signal.markdown(
+                f'<div class="metric-card {sig_class}">'
+                f'<div class="metric-label">AI Signal &nbsp;·&nbsp; {ts}</div>'
+                f'<div class="metric-value">{badge_html}</div></div>',
+                unsafe_allow_html=True,
+            )
+            st.session_state.signal_history.append({"time": ts, "signal": signal_output})
+    
+            if signal_output in ("BUY", "SELL"):
+                p_mode = "BO" if (tp_pct > 0 or sl_pct > 0) else "INTRADAY"
+                try:
+                    order_resp = dhan_client.place_order(
+                        tag="AI_Dhan_Terminal", transaction_type=signal_output,
+                        exchange_segment=_exchange_seg, product_type=p_mode,
+                        order_type="MARKET", validity="DAY", quantity=int(trade_qty),
+                        security_id=str(_security_id), price=0, trigger_price=0,
+                        disclosed_quantity=0, after_market_order=False, amo_time="OPEN",
+                        bo_profit_value=float(tp_pct), bo_stop_loss_Value=float(sl_pct),
+                    )
+                    order_id = order_resp.get("data", {}).get("orderId", "N/A")
+                    log_trade(st.session_state.active_hash, _symbol, timeframe,
+                              signal_output, trade_qty, tp_pct, sl_pct, order_id, "SUCCESS")
+                    st.toast(f"🎯 {signal_output} {trade_qty}× {_symbol} placed", icon="✅")
+                except Exception as order_err:
+                    log_trade(st.session_state.active_hash, _symbol, timeframe,
+                              signal_output, trade_qty, tp_pct, sl_pct, "FAILED", str(order_err))
+                    st.error(f"Order error: {order_err}")
+    
+            slot_counter.markdown(
+                f'<div style="text-align:center;color:var(--label);font-size:12px;padding:6px;">'
+                f'Next poll in 5s · Tick #{len(st.session_state.signal_history)}</div>',
+                unsafe_allow_html=True,
+            )
+    
+        if st.session_state.trading_active and st.session_state.current_compiled_code:
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown('<div class="dhan-section-header"><h3>📡 Live Engine</h3></div>', unsafe_allow_html=True)
+            _live_engine_fragment()
+    
+    # ─────────────────────────────────────────────────────────────────────────────
+    # 8. RECORDS TAB
+    # ─────────────────────────────────────────────────────────────────────────────
+    with tab_records:
+        if st.button("🔄 Refresh", key="dhan_refresh"):
+            st.rerun()
+        hist_df = fetch_trade_history()
+        if not hist_df.empty:
+            st.dataframe(hist_df, use_container_width=True)
+            st.markdown("<br>", unsafe_allow_html=True)
+            total  = len(hist_df)
+            buys   = len(hist_df[hist_df["action"] == "BUY"])
+            sells  = len(hist_df[hist_df["action"] == "SELL"])
+            errors = len(hist_df[hist_df["status"] != "SUCCESS"])
+            s1, s2, s3, s4 = st.columns(4)
+            for col, label, val, cls in [
+                (s1, "Total Trades", total,  "metric-card-accent"),
+                (s2, "BUY Orders",   buys,   "metric-card-green"),
+                (s3, "SELL Orders",  sells,  "metric-card-red"),
+                (s4, "Errors",       errors, "metric-card-accent"),
+            ]:
+                with col:
+                    st.markdown(
+                        f'<div class="metric-card {cls}"><div class="metric-label">{label}</div>'
+                        f'<div class="metric-value">{val}</div></div>',
+                        unsafe_allow_html=True,
+                    )
+        else:
+            st.info("No trades logged yet. Start the engine to begin recording.")
