@@ -7,12 +7,13 @@ import requests
 import hashlib
 from datetime import datetime
 import ccxt
+import streamlit_analytics2 as streamlit_analytics
 
 # ─── EXCHANGE REGISTRY — every exchange ccxt supports, binance pinned first ───
 CCXT_EXCHANGES = sorted(ccxt.exchanges, key=lambda x: (x != "binance", x))
 
 st.set_page_config(
-    page_title="Free CCXT Crypto Trading Bot",
+    page_title="CCXT AI Terminal",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -311,7 +312,7 @@ AI_PROVIDERS = {
     "Gemini":    {"model": "gemini-2.5-flash-lite", "key_hint": "AIza…"},
     "OpenAI":    {"model": "gpt-4o-mini",            "key_hint": "sk-…"},
     "Anthropic": {"model": "claude-sonnet-4-6",      "key_hint": "sk-ant-…"},
-    "DeepSeek":  {"model": "deepseek-v4-flash",          "key_hint": "sk-…"},
+    "DeepSeek":  {"model": "deepseek-chat",          "key_hint": "sk-…"},
 }
 
 def _strip_code_fences(raw: str) -> str:
@@ -514,211 +515,213 @@ def render_config_tab():
         unsafe_allow_html=True,
     )
 
+
 # ─── MAIN TABS ────────────────────────────────────────────────────────────────
-tab_config, tab_engine, tab_records = st.tabs(["⚙️  Config", "🚀  Engine", "📋  Records"])
-
-with tab_config:
-    render_config_tab()
-
-# Read config values from session_state — never from widget return values directly
-exchange_id     = st.session_state.sb_exchange
-api_env         = st.session_state.sb_env
-user_api_key    = st.session_state.sb_api_key
-user_secret_key = st.session_state.sb_secret_key
-target_symbol   = st.session_state.sb_symbol
-is_sandbox      = (api_env == "Testnet / Paper")
-ai_provider     = st.session_state.sb_ai_provider
-ai_api_key      = st.session_state.sb_ai_key
-
-# ─── ENGINE TAB ───────────────────────────────────────────────────────────────
-with tab_engine:
-    st.markdown('<div class="ccxt-section-header"><h3>⚙️ Trading Parameters</h3></div>', unsafe_allow_html=True)
-    c1, c2 = st.columns(2)
-    with c1:
-        timeframe = st.selectbox("Timeframe", ["1m", "5m", "15m", "1h", "1d"], key="ccxt_tf")
-        tp_pct    = st.number_input("Take Profit (%)", min_value=0.0, value=1.5, step=0.1, key="ccxt_tp")
-    with c2:
-        trade_qty = st.number_input("Quantity (Crypto)", min_value=0.0001, value=0.01, step=0.001, format="%.4f", key="ccxt_qty")
-        sl_pct    = st.number_input("Stop Loss (%)", min_value=0.0, value=1.0, step=0.1, key="ccxt_sl")
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown('<div class="ccxt-section-header"><h3>📝 Strategy Prompt</h3></div>', unsafe_allow_html=True)
-    st.markdown('<div class="strategy-canvas"><div class="strategy-canvas-label">Describe your strategy in plain English</div>', unsafe_allow_html=True)
-    MACD_PLACEHOLDER = "# Strategy: MACD Crossover\n# Buy when MACD line crosses above the Signal line.\n# Sell when MACD line crosses below the Signal line.\n# Use default parameters (12, 26, 9) for MACD calculation.\n"
-    user_prompt = st.text_area("", value=MACD_PLACEHOLDER, height=180, label_visibility="collapsed", key="ccxt_strategy")
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    btn1, btn2 = st.columns(2)
-    with btn1:
-        if st.button("▶  START AUTO TRADING", use_container_width=True, key="ccxt_start"):
-            if not user_api_key or not user_secret_key:
-                st.error("⛔ Exchange API & Secret keys required before starting.")
-            elif not ai_api_key:
-                st.error(f"⛔ {ai_provider} API key required before starting. Add it in the Config tab.")
-            else:
-                st.session_state.ccxt_markets_loaded = False
-                cached_code, prompt_hash, is_cached = get_cached_code(user_prompt)
-                st.session_state.active_hash = prompt_hash
-                if is_cached:
-                    st.session_state.current_compiled_code = cached_code
-                    st.session_state.trading_active = True
-                    st.session_state.analysis_success = True
-                    st.success("✅ Loaded strategy from cache.")
+with streamlit_analytics.track():
+    tab_config, tab_engine, tab_records = st.tabs(["⚙️  Config", "🚀  Engine", "📋  Records"])
+    
+    with tab_config:
+        render_config_tab()
+    
+    # Read config values from session_state — never from widget return values directly
+    exchange_id     = st.session_state.sb_exchange
+    api_env         = st.session_state.sb_env
+    user_api_key    = st.session_state.sb_api_key
+    user_secret_key = st.session_state.sb_secret_key
+    target_symbol   = st.session_state.sb_symbol
+    is_sandbox      = (api_env == "Testnet / Paper")
+    ai_provider     = st.session_state.sb_ai_provider
+    ai_api_key      = st.session_state.sb_ai_key
+    
+    # ─── ENGINE TAB ───────────────────────────────────────────────────────────────
+    with tab_engine:
+        st.markdown('<div class="ccxt-section-header"><h3>⚙️ Trading Parameters</h3></div>', unsafe_allow_html=True)
+        c1, c2 = st.columns(2)
+        with c1:
+            timeframe = st.selectbox("Timeframe", ["1m", "5m", "15m", "1h", "1d"], key="ccxt_tf")
+            tp_pct    = st.number_input("Take Profit (%)", min_value=0.0, value=1.5, step=0.1, key="ccxt_tp")
+        with c2:
+            trade_qty = st.number_input("Quantity (Crypto)", min_value=0.0001, value=0.01, step=0.001, format="%.4f", key="ccxt_qty")
+            sl_pct    = st.number_input("Stop Loss (%)", min_value=0.0, value=1.0, step=0.1, key="ccxt_sl")
+    
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown('<div class="ccxt-section-header"><h3>📝 Strategy Prompt</h3></div>', unsafe_allow_html=True)
+        st.markdown('<div class="strategy-canvas"><div class="strategy-canvas-label">Describe your strategy in plain English</div>', unsafe_allow_html=True)
+        MACD_PLACEHOLDER = "# Strategy: MACD Crossover\n# Buy when MACD line crosses above the Signal line.\n# Sell when MACD line crosses below the Signal line.\n# Use default parameters (12, 26, 9) for MACD calculation.\n"
+        user_prompt = st.text_area("", value=MACD_PLACEHOLDER, height=180, label_visibility="collapsed", key="ccxt_strategy")
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+        btn1, btn2 = st.columns(2)
+        with btn1:
+            if st.button("▶  START AUTO TRADING", use_container_width=True, key="ccxt_start"):
+                if not user_api_key or not user_secret_key:
+                    st.error("⛔ Exchange API & Secret keys required before starting.")
+                elif not ai_api_key:
+                    st.error(f"⛔ {ai_provider} API key required before starting. Add it in the Config tab.")
                 else:
-                    with st.spinner(f"{ai_provider} is compiling your strategy…"):
-                        compiled, err = compile_prompt_via_ai(user_prompt, ai_provider, ai_api_key)
-                    if err:
-                        st.error(f"⛔ {ai_provider} Error: {err}")
-                    else:
-                        save_code_to_cache(prompt_hash, user_prompt, compiled)
-                        st.session_state.current_compiled_code = compiled
+                    st.session_state.ccxt_markets_loaded = False
+                    cached_code, prompt_hash, is_cached = get_cached_code(user_prompt)
+                    st.session_state.active_hash = prompt_hash
+                    if is_cached:
+                        st.session_state.current_compiled_code = cached_code
                         st.session_state.trading_active = True
                         st.session_state.analysis_success = True
-                        st.success("✅ Strategy compiled and ready.")
-    with btn2:
-        if st.button("⏹  STOP AUTO TRADING", use_container_width=True, key="ccxt_stop"):
-            st.session_state.trading_active = False
-            st.session_state.analysis_success = False
-            st.session_state.ccxt_markets_loaded = False
-            # Release pooled client on stop
-            st.session_state.ccxt_exchange = None
-            st.session_state.ccxt_exchange_key = ""
-            st.warning("Trading paused. API Engine disconnected.")
-
-    if st.session_state.current_compiled_code:
-        with st.expander("🛠  View Compiled Strategy Code"):
-            st.code(st.session_state.current_compiled_code, language="python")
-
-    # FIX #2 — Non-blocking polling loop via @st.fragment(run_every=…).
-    # The fragment reruns on its own cadence so the STOP button is always
-    # responsive and Render health-check pings reach the main thread freely.
-    @st.fragment(run_every=5)
-    def _live_engine_fragment():
-        if not st.session_state.trading_active or not st.session_state.current_compiled_code:
-            return
-
-        # FIX #4 — reuse pooled exchange; only reconnects when creds change
-        try:
-            exchange = get_or_create_ccxt_exchange(
-                exchange_id, user_api_key, user_secret_key, is_sandbox
-            )
-        except Exception as exc:
-            st.error(f"CCXT init failed: {exc}")
-            st.session_state.trading_active = False
-            return
-
-        # Load markets once per session (not every tick)
-        if not st.session_state.ccxt_markets_loaded:
+                        st.success("✅ Loaded strategy from cache.")
+                    else:
+                        with st.spinner(f"{ai_provider} is compiling your strategy…"):
+                            compiled, err = compile_prompt_via_ai(user_prompt, ai_provider, ai_api_key)
+                        if err:
+                            st.error(f"⛔ {ai_provider} Error: {err}")
+                        else:
+                            save_code_to_cache(prompt_hash, user_prompt, compiled)
+                            st.session_state.current_compiled_code = compiled
+                            st.session_state.trading_active = True
+                            st.session_state.analysis_success = True
+                            st.success("✅ Strategy compiled and ready.")
+        with btn2:
+            if st.button("⏹  STOP AUTO TRADING", use_container_width=True, key="ccxt_stop"):
+                st.session_state.trading_active = False
+                st.session_state.analysis_success = False
+                st.session_state.ccxt_markets_loaded = False
+                # Release pooled client on stop
+                st.session_state.ccxt_exchange = None
+                st.session_state.ccxt_exchange_key = ""
+                st.warning("Trading paused. API Engine disconnected.")
+    
+        if st.session_state.current_compiled_code:
+            with st.expander("🛠  View Compiled Strategy Code"):
+                st.code(st.session_state.current_compiled_code, language="python")
+    
+        # FIX #2 — Non-blocking polling loop via @st.fragment(run_every=…).
+        # The fragment reruns on its own cadence so the STOP button is always
+        # responsive and Render health-check pings reach the main thread freely.
+        @st.fragment(run_every=5)
+        def _live_engine_fragment():
+            if not st.session_state.trading_active or not st.session_state.current_compiled_code:
+                return
+    
+            # FIX #4 — reuse pooled exchange; only reconnects when creds change
             try:
-                with st.spinner(f"Connecting to {exchange_id.capitalize()}…"):
-                    exchange.load_markets()
-                if target_symbol not in exchange.markets:
-                    st.error(f"Symbol '{target_symbol}' not found on {exchange_id.capitalize()}.")
-                    st.session_state.trading_active = False
-                    return
-                st.session_state.ccxt_markets_loaded = True
+                exchange = get_or_create_ccxt_exchange(
+                    exchange_id, user_api_key, user_secret_key, is_sandbox
+                )
             except Exception as exc:
-                st.error(f"CCXT connection failed: {exc}")
+                st.error(f"CCXT init failed: {exc}")
                 st.session_state.trading_active = False
                 return
-
-        slot_symbol  = st.empty()
-        slot_signal  = st.empty()
-        slot_counter = st.empty()
-
-        # FIX #1 — pass exchange, symbol, and timeframe into seeded exec scope
-        signal_output, runtime_err = run_in_memory_strategy(
-            st.session_state.current_compiled_code,
-            exchange,
-            target_symbol,
-            timeframe,
-        )
-
-        if runtime_err:
-            st.error(f"⛔ Execution error: {runtime_err}")
-            st.session_state.trading_active = False
-            return
-
-        ts = datetime.now().strftime("%H:%M:%S")
-        slot_symbol.markdown(
-            f'<div class="metric-card metric-card-accent">'
-            f'<div class="metric-label">Polling Target ({exchange_id.upper()})</div>'
-            f'<div class="metric-value">📍 {target_symbol} &nbsp;·&nbsp; {timeframe}</div></div>',
-            unsafe_allow_html=True,
-        )
-
-        sig_class  = "metric-card-green" if signal_output == "BUY" else "metric-card-red" if signal_output == "SELL" else "metric-card-accent"
-        badge_html = f'<span class="signal-{signal_output.lower()}">{signal_output}</span>'
-        slot_signal.markdown(
-            f'<div class="metric-card {sig_class}">'
-            f'<div class="metric-label">AI Signal &nbsp;·&nbsp; {ts}</div>'
-            f'<div class="metric-value">{badge_html}</div></div>',
-            unsafe_allow_html=True,
-        )
-        st.session_state.signal_history.append({"time": ts, "signal": signal_output})
-
-        if signal_output in ("BUY", "SELL"):
-            try:
-                ticker        = exchange.fetch_ticker(target_symbol)
-                current_price = ticker['last']
-                if current_price is None:
-                    raise ValueError("Could not fetch current price from ticker.")
-                side        = "buy" if signal_output == "BUY" else "sell"
-                order_params = {}
-                if tp_pct > 0:
-                    tp_price = current_price * (1 + tp_pct / 100) if side == "buy" else current_price * (1 - tp_pct / 100)
-                    order_params['takeProfit'] = round(tp_price, 4)
-                if sl_pct > 0:
-                    sl_price = current_price * (1 - sl_pct / 100) if side == "buy" else current_price * (1 + sl_pct / 100)
-                    order_params['stopLoss'] = round(sl_price, 4)
-                order_resp = exchange.create_order(
-                    symbol=target_symbol, type='market', side=side,
-                    amount=float(trade_qty), params=order_params,
-                )
-                log_trade(st.session_state.active_hash, target_symbol, timeframe,
-                          signal_output, trade_qty, tp_pct, sl_pct,
-                          str(order_resp.get('id', 'N/A')), "SUCCESS")
-                st.toast(f"🎯 {signal_output} {trade_qty}× {target_symbol} placed", icon="✅")
-            except Exception as order_err:
-                log_trade(st.session_state.active_hash, target_symbol, timeframe,
-                          signal_output, trade_qty, tp_pct, sl_pct, "FAILED", str(order_err))
-                st.error(f"Order error: {order_err}")
-
-        slot_counter.markdown(
-            f'<div style="text-align:center;color:var(--label);font-size:14px;padding:6px;">'
-            f'Next poll in 5s · Tick #{len(st.session_state.signal_history)}</div>',
-            unsafe_allow_html=True,
-        )
-
-    if st.session_state.trading_active and st.session_state.current_compiled_code:
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown('<div class="ccxt-section-header"><h3>📡 Live Engine</h3></div>', unsafe_allow_html=True)
-        _live_engine_fragment()
-
-# ─── RECORDS TAB ──────────────────────────────────────────────────────────────
-with tab_records:
-    if st.button("🔄 Refresh", key="ccxt_refresh"):
-        st.rerun()
-    hist_df = fetch_trade_history()
-    if not hist_df.empty:
-        st.dataframe(hist_df, use_container_width=True)
-        st.markdown("<br>", unsafe_allow_html=True)
-        total  = len(hist_df)
-        buys   = len(hist_df[hist_df["action"] == "BUY"])
-        sells  = len(hist_df[hist_df["action"] == "SELL"])
-        errors = len(hist_df[hist_df["status"] != "SUCCESS"])
-        s1, s2, s3, s4 = st.columns(4)
-        for col, label, val, cls in [
-            (s1, "Total Trades", total,  "metric-card-accent"),
-            (s2, "BUY Orders",   buys,   "metric-card-green"),
-            (s3, "SELL Orders",  sells,  "metric-card-red"),
-            (s4, "Errors",       errors, "metric-card-accent"),
-        ]:
-            with col:
-                st.markdown(
-                    f'<div class="metric-card {cls}"><div class="metric-label">{label}</div>'
-                    f'<div class="metric-value">{val}</div></div>',
-                    unsafe_allow_html=True,
-                )
-    else:
-        st.info("No trades logged yet. Start the engine to begin recording.")
+    
+            # Load markets once per session (not every tick)
+            if not st.session_state.ccxt_markets_loaded:
+                try:
+                    with st.spinner(f"Connecting to {exchange_id.capitalize()}…"):
+                        exchange.load_markets()
+                    if target_symbol not in exchange.markets:
+                        st.error(f"Symbol '{target_symbol}' not found on {exchange_id.capitalize()}.")
+                        st.session_state.trading_active = False
+                        return
+                    st.session_state.ccxt_markets_loaded = True
+                except Exception as exc:
+                    st.error(f"CCXT connection failed: {exc}")
+                    st.session_state.trading_active = False
+                    return
+    
+            slot_symbol  = st.empty()
+            slot_signal  = st.empty()
+            slot_counter = st.empty()
+    
+            # FIX #1 — pass exchange, symbol, and timeframe into seeded exec scope
+            signal_output, runtime_err = run_in_memory_strategy(
+                st.session_state.current_compiled_code,
+                exchange,
+                target_symbol,
+                timeframe,
+            )
+    
+            if runtime_err:
+                st.error(f"⛔ Execution error: {runtime_err}")
+                st.session_state.trading_active = False
+                return
+    
+            ts = datetime.now().strftime("%H:%M:%S")
+            slot_symbol.markdown(
+                f'<div class="metric-card metric-card-accent">'
+                f'<div class="metric-label">Polling Target ({exchange_id.upper()})</div>'
+                f'<div class="metric-value">📍 {target_symbol} &nbsp;·&nbsp; {timeframe}</div></div>',
+                unsafe_allow_html=True,
+            )
+    
+            sig_class  = "metric-card-green" if signal_output == "BUY" else "metric-card-red" if signal_output == "SELL" else "metric-card-accent"
+            badge_html = f'<span class="signal-{signal_output.lower()}">{signal_output}</span>'
+            slot_signal.markdown(
+                f'<div class="metric-card {sig_class}">'
+                f'<div class="metric-label">AI Signal &nbsp;·&nbsp; {ts}</div>'
+                f'<div class="metric-value">{badge_html}</div></div>',
+                unsafe_allow_html=True,
+            )
+            st.session_state.signal_history.append({"time": ts, "signal": signal_output})
+    
+            if signal_output in ("BUY", "SELL"):
+                try:
+                    ticker        = exchange.fetch_ticker(target_symbol)
+                    current_price = ticker['last']
+                    if current_price is None:
+                        raise ValueError("Could not fetch current price from ticker.")
+                    side        = "buy" if signal_output == "BUY" else "sell"
+                    order_params = {}
+                    if tp_pct > 0:
+                        tp_price = current_price * (1 + tp_pct / 100) if side == "buy" else current_price * (1 - tp_pct / 100)
+                        order_params['takeProfit'] = round(tp_price, 4)
+                    if sl_pct > 0:
+                        sl_price = current_price * (1 - sl_pct / 100) if side == "buy" else current_price * (1 + sl_pct / 100)
+                        order_params['stopLoss'] = round(sl_price, 4)
+                    order_resp = exchange.create_order(
+                        symbol=target_symbol, type='market', side=side,
+                        amount=float(trade_qty), params=order_params,
+                    )
+                    log_trade(st.session_state.active_hash, target_symbol, timeframe,
+                              signal_output, trade_qty, tp_pct, sl_pct,
+                              str(order_resp.get('id', 'N/A')), "SUCCESS")
+                    st.toast(f"🎯 {signal_output} {trade_qty}× {target_symbol} placed", icon="✅")
+                except Exception as order_err:
+                    log_trade(st.session_state.active_hash, target_symbol, timeframe,
+                              signal_output, trade_qty, tp_pct, sl_pct, "FAILED", str(order_err))
+                    st.error(f"Order error: {order_err}")
+    
+            slot_counter.markdown(
+                f'<div style="text-align:center;color:var(--label);font-size:14px;padding:6px;">'
+                f'Next poll in 5s · Tick #{len(st.session_state.signal_history)}</div>',
+                unsafe_allow_html=True,
+            )
+    
+        if st.session_state.trading_active and st.session_state.current_compiled_code:
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown('<div class="ccxt-section-header"><h3>📡 Live Engine</h3></div>', unsafe_allow_html=True)
+            _live_engine_fragment()
+    
+    # ─── RECORDS TAB ──────────────────────────────────────────────────────────────
+    with tab_records:
+        if st.button("🔄 Refresh", key="ccxt_refresh"):
+            st.rerun()
+        hist_df = fetch_trade_history()
+        if not hist_df.empty:
+            st.dataframe(hist_df, use_container_width=True)
+            st.markdown("<br>", unsafe_allow_html=True)
+            total  = len(hist_df)
+            buys   = len(hist_df[hist_df["action"] == "BUY"])
+            sells  = len(hist_df[hist_df["action"] == "SELL"])
+            errors = len(hist_df[hist_df["status"] != "SUCCESS"])
+            s1, s2, s3, s4 = st.columns(4)
+            for col, label, val, cls in [
+                (s1, "Total Trades", total,  "metric-card-accent"),
+                (s2, "BUY Orders",   buys,   "metric-card-green"),
+                (s3, "SELL Orders",  sells,  "metric-card-red"),
+                (s4, "Errors",       errors, "metric-card-accent"),
+            ]:
+                with col:
+                    st.markdown(
+                        f'<div class="metric-card {cls}"><div class="metric-label">{label}</div>'
+                        f'<div class="metric-value">{val}</div></div>',
+                        unsafe_allow_html=True,
+                    )
+        else:
+            st.info("No trades logged yet. Start the engine to begin recording.")
